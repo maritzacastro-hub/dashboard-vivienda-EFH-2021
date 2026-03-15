@@ -611,14 +611,14 @@ app_ui = ui.page_navbar(
             "Comparación entre Regresión Logística Ridge y MLP usando las métricas por fold disponibles en metrics_by_fold.csv.",
         ),
         ui.layout_columns(
-            ui.value_box("Mejor modelo según AUC", best_model_name, "Promedio out-of-fold.", theme=ui.value_box_theme(bg="#1f6f4a", fg="white")),
+            ui.value_box("Mejor modelo según AUC", best_model_name, "Promedio out-of-fold.", theme=ui.value_box_theme(bg="#29895d", fg="white")),
             ui.value_box(
                 "Mejor AUC promedio",
                 (f"{best_auc_value:.3f}" if not np.isnan(best_auc_value) else "No disponible"),
                 "Calculado sobre metrics_by_fold.csv.",
                 theme="primary",
             ),
-            ui.value_box("Comparación", "Regresión logística binaria vs MLP", "Ambos modelos se visualizan en la misma pestaña.", theme=ui.value_box_theme(bg="#5b3c88", fg="white")),
+            ui.value_box("Comparación", "Regresión logística binaria vs MLP", "Ambos modelos se visualizan en la misma pestaña.", theme=ui.value_box_theme(bg="#6a499a", fg="white")),
             col_widths=(4, 4, 4),
         ),
         ui.layout_columns(
