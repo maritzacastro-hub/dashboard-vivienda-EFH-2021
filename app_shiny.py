@@ -644,7 +644,7 @@ app_ui = ui.page_navbar(
                 ui.p("Completa o ajusta las características del hogar para estimar la probabilidad de tenencia de vivienda propia.",class_="helper-text",
                 ),
                 
-                ui.input_slider("edad_pr", label_var("edad_pr"), min=18, max=100, value=18),
+                ui.input_slider("edad_pr", label_var("edad_pr"), min=18, max=90, value=18),
                 ui.input_slider("numh", label_var("numh"), min=1, max=12, value=1),
                 ui.input_slider("ocuph", label_var("ocuph"), min=0, max=3, value=0),
                 ui.input_numeric("yoprinm_pr", label_var("yoprinm_pr"), value=0, min=0, step=50000),
@@ -683,19 +683,6 @@ app_ui = ui.page_navbar(
                     ui.output_ui("prob_interpretation"),
                 ),
                 col_widths=(5, 7),
-            ),
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("Fila de entrada al modelo"),
-                    ui.output_data_frame("input_row_table"),
-                    full_screen=True,
-                ),
-                ui.card(
-                    ui.card_header("Validaciones y advertencias"),
-                    ui.output_ui("calc_warnings"),
-                    full_screen=True,
-                ),
-                col_widths=(7, 5),
             ),
         ),
     ),
