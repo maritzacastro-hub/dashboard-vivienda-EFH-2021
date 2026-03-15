@@ -15,6 +15,9 @@ BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_RESULTS = BASE_DIR / "public_results"
 MODEL_PATH = PUBLIC_RESULTS / "model_lr_18.joblib"
 
+HOGARES_UNICOS_ANALISIS = 2313
+MODELO_FINAL_HOME = "Regresión logística binaria"
+
 ORDERED_VARS = [
     "act_fijo",
     "act_var",
@@ -175,7 +178,7 @@ def normalize_model_labels(df: pd.DataFrame) -> pd.DataFrame:
         .astype(str)
         .str.strip()
         .str.replace(r"^MLP seleccionadas(?:\s*\(Group-CV\))?$", "MLP", regex=True)
-        .str.replace(r"^LR Ridge \(splines\)(?:\s*\(Group-CV\))?$", "LR Ridge (splines)", regex=True)
+        .str.replace(r"^LR Ridge \(splines\)(?:\s*\(Group-CV\))?$", "Regresión logística binaria", regex=True)
     )
     return df
 
@@ -457,10 +460,30 @@ app_ui = ui.page_navbar(
             ),
         ),
         ui.layout_columns(
-            ui.value_box("Hogares analizados", f"{summary_n:,}", "Registros utilizados en la app pública.", theme="primary"),
-            ui.value_box("Vivienda propia", f"{summary_pct:.2f}%", "Proporción observada en la base resumen.", theme="blue"),
-            ui.value_box("Variables del modelo", f"{len(ORDERED_VARS)}", "8 numéricas, 7 binarias y 3 categóricas.", theme="purple"),
-            ui.value_box("Modelo destacado", best_model_name, "Selección según AUC promedio por fold.", theme="teal"),
+            ui.value_box(
+                "Hogares únicos analizados",
+                f"{HOGARES_UNICOS_ANALISIS:,}",
+                "Unidad principal utilizada para la comparación de modelos.",
+                theme="primary"
+            ),
+            ui.value_box(
+                "Vivienda propia",
+                f"{summary_pct:.2f}%",
+                "Proporción observada en la base resumen.",
+                theme="blue"
+            ),
+            ui.value_box(
+                "Variables del modelo",
+                f"{len(ORDERED_VARS)}",
+                "8 numéricas, 7 binarias y 3 categóricas.",
+                theme=ui.value_box_theme(bg="#6a4c93", fg="white")
+            ),
+            ui.value_box(
+                "Modelo final seleccionado",
+                MODELO_FINAL_HOME,
+                "Seleccionado por equilibrio entre desempeño, estabilidad e interpretabilidad.",
+                theme=ui.value_box_theme(bg="#1f6f4a", fg="white")
+            ),
             col_widths=(3, 3, 3, 3),
         ),
         ui.layout_columns(
@@ -476,7 +499,7 @@ app_ui = ui.page_navbar(
                 full_screen=True,
             ),
             ui.card(
-                ui.card_header("Cómo está organizado"),
+                ui.card_header("Estructura del dashboard"),
                 ui.markdown(
                     """
                     1. **Perfil descriptivo** para explorar cada variable.
@@ -490,10 +513,13 @@ app_ui = ui.page_navbar(
             col_widths=(6, 6),
         ),
         ui.card(
-            ui.card_header("Notas metodológicas"),
+            ui.card_header("¿Para qué sirve este dashboard?"),
             ui.p(
-                "Esta app trabaja con resultados públicos agregados ubicados en la carpeta public_results y "
-                "con un modelo entrenado guardado como joblib. No carga microdatos crudos de la EFH."
+                "Este dashboard permite visualizar de forma integrada los resultados descriptivos, "
+                "la comparación entre modelos predictivos y la simulación de perfiles de hogares a partir "
+                "de resultados públicos agregados almacenados en la carpeta public_results y de un modelo "
+                "entrenado guardado como joblib. Su propósito es apoyar la interpretación de los hallazgos "
+                "sin exponer microdatos crudos de la EFH."
             ),
         ),
     ),
@@ -581,7 +607,7 @@ app_ui = ui.page_navbar(
                 "Calculado sobre metrics_by_fold.csv.",
                 theme="primary",
             ),
-            ui.value_box("Comparación", "LR Ridge vs MLP", "Ambos modelos se visualizan en la misma pestaña.", theme="purple"),
+            ui.value_box("Comparación", "Regresión logística binaria vs MLP", "Ambos modelos se visualizan en la misma pestaña.", theme="purple"),
             col_widths=(4, 4, 4),
         ),
         ui.layout_columns(
