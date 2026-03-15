@@ -616,8 +616,7 @@ app_ui = ui.page_navbar(
         "Correlaciones",
         ui.div(
             {"class": "section-note"},
-            "Se muestra la matriz de correlación entre las variables disponibles en los resultados públicos. "
-            "La lectura debe ser exploratoria y no causal.",
+            "Se muestra la matriz de correlación entre las variables disponibles en los resultados públicos. ",
         ),
         ui.layout_columns(
             ui.card(
