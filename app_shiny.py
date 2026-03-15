@@ -466,7 +466,7 @@ app_ui = ui.page_navbar(
             {"class": "hero-box"},
             ui.h2("Factores que influyen en la probabilidad de tenencia de vivienda propia"),
             ui.p(
-                "Aplicación en Shiny for Python para presentar resultados de la EFH 2021, "
+                "Aplicación en Shiny para presentar resultados de la EFH 2021, "
                 "comparar modelos y simular la probabilidad estimada de vivienda propia."
             ),
         ),
