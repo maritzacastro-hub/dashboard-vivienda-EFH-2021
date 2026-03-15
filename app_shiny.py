@@ -917,7 +917,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         df_metrics = DATA["metrics_fold"]
         if df_metrics.empty or metric_name not in df_metrics.columns or "Modelo" not in df_metrics.columns:
             return empty_figure(f"No hay datos de {metric_name}.")
-        dfp = df_metrics[df_metrics["Modelo"].astype(str).str.contains("LR Ridge|MLP", case=False, regex=True)].copy()
+        dfp = df_metrics[df_metrics["Modelo"].astype(str).isin(["Regresión logística binaria", "MLP"])].copy()
         if dfp.empty or "Fold" not in dfp.columns:
             return empty_figure(f"No hay comparaciones válidas para {metric_name}.")
         dfp["Fold"] = pd.to_numeric(dfp["Fold"], errors="coerce")
