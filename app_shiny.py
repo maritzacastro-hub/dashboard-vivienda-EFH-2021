@@ -141,6 +141,17 @@ APP_CSS = """
 .prob-low { background: #fdecec; color: #8b1e1e; }
 .prob-mid { background: #fff4db; color: #8b5e00; }
 .prob-high { background: #e9f8ef; color: #13653a; }
+
+.value-box .card-title,
+.value-box .value-box-title {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+.value-box .value-box-value {
+  font-size: 2.3rem !important;
+  font-weight: 700 !important;
+}
 """
 
 
@@ -476,7 +487,7 @@ app_ui = ui.page_navbar(
                 "Variables del modelo",
                 f"{len(ORDERED_VARS)}",
                 "8 numéricas, 7 binarias y 3 categóricas.",
-                theme=ui.value_box_theme(bg="#6a4c93", fg="white")
+                theme=ui.value_box_theme(bg="#5b3c88", fg="white")
             ),
             ui.value_box(
                 "Modelo final seleccionado",
