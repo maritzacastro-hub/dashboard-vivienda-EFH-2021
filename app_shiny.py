@@ -152,6 +152,39 @@ APP_CSS = """
   font-size: 2.3rem !important;
   font-weight: 700 !important;
 }
+
+.bslib-value-box p {
+  font-size: 1rem !important;
+}
+
+.prob-main-value {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #163b65;
+  line-height: 1.1;
+}
+
+.calc-card-wrap {
+  height: 100%;
+}
+
+.calc-card-wrap .card {
+  min-height: 170px;
+  height: 100%;
+}
+
+.prob-card-wrap .card-header {
+  background: #163b65;
+  color: white;
+  font-weight: 700;
+}
+
+.interp-card-wrap .card-header {
+  background: #edf4fb;
+  color: #163b65;
+  font-weight: 700;
+}
+
 """
 
 
@@ -671,18 +704,27 @@ app_ui = ui.page_navbar(
                 width="350px",
                 open="desktop",
             ),
-            ui.layout_columns(
-                ui.value_box(
-                    "Probabilidad estimada de vivienda propia",
-                    ui.output_text("prob_value"),
-                    ui.output_text("prob_caption"),
-                    theme="primary",
+            ui.row(
+                ui.column(
+                    4,
+                    ui.div(
+                        ui.card(
+                            ui.card_header("Probabilidad estimada de vivienda propia"),
+                            ui.div(ui.output_text("prob_value"), class_="prob-main-value"),
+                        ),
+                        class_="calc-card-wrap prob-card-wrap",
+                    ),
                 ),
-                ui.card(
-                    ui.card_header("Interpretación"),
-                    ui.output_ui("prob_interpretation"),
+                ui.column(
+                    8,
+                    ui.div(
+                        ui.card(
+                            ui.card_header("Interpretación"),
+                            ui.output_ui("prob_interpretation"),
+                        ),
+                        class_="calc-card-wrap interp-card-wrap",
+                    ),
                 ),
-                col_widths=(5, 7),
             ),
         ),
     ),
