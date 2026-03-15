@@ -641,10 +641,13 @@ app_ui = ui.page_navbar(
         "Calculadora",
         ui.layout_sidebar(
             ui.sidebar(
-                ui.input_slider("edad_pr", label_var("edad_pr"), min=18, max=100, value=40),
-                ui.input_slider("numh", label_var("numh"), min=1, max=12, value=3),
-                ui.input_slider("ocuph", label_var("ocuph"), min=0, max=3, value=1),
-                ui.input_numeric("yoprinm_pr", label_var("yoprinm_pr"), value=700000, min=0, step=50000),
+                ui.p("Completa o ajusta las características del hogar para estimar la probabilidad de tenencia de vivienda propia.",class_="helper-text",
+                ),
+                
+                ui.input_slider("edad_pr", label_var("edad_pr"), min=18, max=100, value=18),
+                ui.input_slider("numh", label_var("numh"), min=1, max=12, value=1),
+                ui.input_slider("ocuph", label_var("ocuph"), min=0, max=3, value=0),
+                ui.input_numeric("yoprinm_pr", label_var("yoprinm_pr"), value=0, min=0, step=50000),
                 ui.input_numeric("ypenh", label_var("ypenh"), value=0, min=0, step=50000),
                 ui.input_numeric("ysubh", label_var("ysubh"), value=0, min=0, step=50000),
                 ui.input_numeric("act_fijo", label_var("act_fijo"), value=0, min=0, step=500000),
@@ -693,13 +696,6 @@ app_ui = ui.page_navbar(
                     full_screen=True,
                 ),
                 col_widths=(7, 5),
-            ),
-            ui.card(
-                ui.card_header("Observación metodológica"),
-                ui.p(
-                    "Los montos monetarios se transforman con log(1 + x) antes de la predicción, "
-                    "siguiendo la lógica del dashboard original."
-                ),
             ),
         ),
     ),
