@@ -165,6 +165,19 @@ def _rename_first_match(df: pd.DataFrame, target: str, candidates: list[str]) ->
             return df.rename(columns={c: target})
     return df
 
+def normalize_model_labels(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "Modelo" not in df.columns:
+        return df
+
+    df = df.copy()
+    df["Modelo"] = (
+        df["Modelo"]
+        .astype(str)
+        .str.strip()
+        .str.replace(r"^MLP seleccionadas(?:\s*\(Group-CV\))?$", "MLP", regex=True)
+        .str.replace(r"^LR Ridge \(splines\)(?:\s*\(Group-CV\))?$", "LR Ridge (splines)", regex=True)
+    )
+    return df
 
 def normalize_public_tables(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     for key, df in list(data.items()):
@@ -269,6 +282,7 @@ def load_app_data(base_dir: Path) -> dict[str, Any]:
 
     try:
         data["metrics_fold"] = read_csv_if_exists(base_dir / "metrics_by_fold.csv")
+        data["metrics_fold"] = normalize_model_labels(data["metrics_fold"])
         data["have_metrics"] = not data["metrics_fold"].empty
     except Exception as e:  # pragma: no cover - defensive fallback
         data["metrics_error"] = str(e)
