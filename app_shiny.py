@@ -703,29 +703,7 @@ app_ui = ui.page_navbar(
             ),
         ),
     ),
-    ui.nav_panel(
-        "Conclusiones",
-        ui.card(
-            ui.card_header("Qué mejora respecto al dashboard original"),
-            ui.markdown(
-                """
-                - La app ya no abre en la calculadora, sino en un **inicio narrativo**.
-                - La **calculadora se mantiene**, pero como sección propia y ordenada.
-                - La exploración descriptiva se separa de las correlaciones y de la comparación de modelos.
-                - La estética es más sobria y más apropiada para una defensa de tesis.
-                """
-            ),
-        ),
-        ui.card(
-            ui.card_header("Siguiente paso sugerido"),
-            ui.markdown(
-                """
-                Conecta esta app a tu carpeta real `public_results/` y prueba la navegación completa.
-                Luego ajusta textos interpretativos y títulos para alinearlos exactamente con tu informe final.
-                """
-            ),
-        ),
-    ),
+
     title="Dashboard EFH 2021",
     id="main_nav",
     selected="Inicio",
