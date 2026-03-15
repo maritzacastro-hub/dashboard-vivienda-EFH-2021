@@ -153,10 +153,6 @@ APP_CSS = """
   font-weight: 700 !important;
 }
 
-.bslib-value-box p {
-  font-size: 1rem !important;
-}
-
 .prob-main-value {
   font-size: 2.8rem;
   font-weight: 700;
