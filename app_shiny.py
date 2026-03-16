@@ -459,26 +459,6 @@ def prepare_input_row(values: dict[str, Any]) -> pd.DataFrame:
     return df[ORDERED_VARS]
 
 
-def classify_probability(p: float) -> tuple[str, str, str]:
-    if p < 0.33:
-        return (
-            "Probabilidad baja",
-            "prob-badge prob-low",
-            "El perfil ingresado se ubica en un tramo bajo según el modelo entrenado.",
-        )
-    if p < 0.66:
-        return (
-            "Probabilidad media",
-            "prob-badge prob-mid",
-            "El perfil ingresado se ubica en un tramo intermedio según el modelo entrenado.",
-        )
-    return (
-        "Probabilidad alta",
-        "prob-badge prob-high",
-        "El perfil ingresado se ubica en un tramo alto según el modelo entrenado.",
-    )
-
-
 def metric_summary_table(df_metrics: pd.DataFrame) -> pd.DataFrame:
     cols = [c for c in ["AUC", "Sensibilidad", "Especificidad", "Precision"] if c in df_metrics.columns]
     if df_metrics.empty or not cols:
@@ -731,7 +711,7 @@ app_ui = ui.page_navbar(
                     8,
                     ui.div(
                         ui.card(
-                            ui.card_header("Interpretación"),
+                            ui.card_header("Descripción del resultado"),
                             ui.output_ui("prob_interpretation"),
                         ),
                         class_="calc-card-wrap interp-card-wrap",
@@ -1043,13 +1023,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     
         try:
             p = float(DATA["model"].predict_proba(x_in)[0, 1])
-            label, badge_class, text = classify_probability(p)
             return {
                 "ok": True,
                 "prob": p,
-                "label": label,
-                "badge_class": badge_class,
-                "text": text,
                 "x_in": x_in,
             }
         except Exception as e:  # pragma: no cover - defensive fallback
@@ -1085,9 +1061,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         res = prediction_result()
         if not res.get("ok"):
             return ui.p(res.get("message", "Completa el perfil del hogar para visualizar el resultado."))
-        return ui.TagList(
-            ui.tags.span(res["label"], class_=res["badge_class"]),
-            ui.p(res["text"], style="margin-top: .8rem;"),
+    
+        return ui.p(
+            "La cifra mostrada corresponde a la probabilidad estimada por el modelo para el perfil de hogar ingresado."
         )
 
     @render.ui
