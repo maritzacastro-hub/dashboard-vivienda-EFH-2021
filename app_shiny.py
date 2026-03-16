@@ -16,6 +16,7 @@ PUBLIC_RESULTS = BASE_DIR / "public_results"
 MODEL_PATH = PUBLIC_RESULTS / "model_lr_18.joblib"
 
 HOGARES_UNICOS_ANALISIS = 2313
+PCT_VIV_PROPIA_HOME = 66.07
 MODELO_FINAL_HOME = "Regresión logística binaria"
 
 ORDERED_VARS = [
@@ -489,7 +490,7 @@ def metric_summary_table(df_metrics: pd.DataFrame) -> pd.DataFrame:
 
 summary = DATA["summary"]
 summary_n = int(summary.loc[0, "n_registros"]) if not summary.empty and "n_registros" in summary.columns else 0
-summary_pct = float(summary.loc[0, "pct_viv_propia"]) if not summary.empty and "pct_viv_propia" in summary.columns else 0.0
+summary_pct = PCT_VIV_PROPIA_HOME
 metrics_summary = metric_summary_table(DATA["metrics_fold"])
 best_model_name = (
     DATA["metrics_fold"].groupby("Modelo")["AUC"].mean().idxmax()
@@ -524,7 +525,7 @@ app_ui = ui.page_navbar(
             ui.value_box(
                 "Vivienda propia",
                 f"{summary_pct:.2f}%",
-                "Proporción observada en la base resumen.",
+                "Proporción a nivel de hogares únicos",
                 theme="blue"
             ),
             ui.value_box(
