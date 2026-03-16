@@ -672,7 +672,7 @@ app_ui = ui.page_navbar(
                 ui.p("Completa o ajusta las características del hogar para estimar la probabilidad de tenencia de vivienda propia.",class_="helper-text",
                 ),
                 
-                ui.input_slider("edad_pr", label_var("edad_pr"), min=18, max=90, value=18),
+                ui.input_slider("edad_pr", label_var("edad_pr"), min=16, max=90, value=18),
                 ui.input_slider("numh", label_var("numh"), min=1, max=12, value=1),
                 ui.input_slider("ocuph", label_var("ocuph"), min=0, max=3, value=0),
                 ui.input_numeric("yoprinm_pr", label_var("yoprinm_pr"), value=0, min=0, step=50000),
@@ -681,12 +681,12 @@ app_ui = ui.page_navbar(
                 ui.input_numeric("act_fijo", label_var("act_fijo"), value=0, min=0, step=500000),
                 ui.input_numeric("act_var", label_var("act_var"), value=0, min=0, step=500000),
                 ui.input_numeric("cap_pen_ent", label_var("cap_pen_ent"), value=0, min=0, step=500000),
-                ui.input_slider("hr_trabajadas_pr", label_var("hr_trabajadas_pr"), min=0, max=80, value=45),
+                ui.input_slider("hr_trabajadas_pr", label_var("hr_trabajadas_pr"), min=0, max=80, value=0),
                 ui.input_select(
                     "est_civil_pr",
                     label_var("est_civil_pr"),
-                    choices={x: x for x in ESTADO_CIVIL},
-                    selected="Soltero(a)",
+                    choices={"": "Selecciona..."} | {x: x for x in ESTADO_CIVIL},
+                    selected="",
                 ),
                 ui.input_checkbox_group(
                     "instrumentos",
@@ -694,7 +694,7 @@ app_ui = ui.page_navbar(
                     choices={v: label_var(v) for v in BINARY_VARS},
                     selected=[],
                 ),
-                ui.input_switch("modo_estricto", "Aplicar validación de coherencia", True),
+                
                 title="Perfil del hogar",
                 width="350px",
                 open="desktop",
@@ -704,7 +704,7 @@ app_ui = ui.page_navbar(
                     4,
                     ui.div(
                         ui.card(
-                            ui.card_header("Probabilidad estimada de vivienda propia"),
+                            ui.card_header("Probabilidad estimada de tenencia de vivienda propia"),
                             ui.div(ui.output_text("prob_value"), class_="prob-main-value"),
                         ),
                         class_="calc-card-wrap prob-card-wrap",
@@ -979,13 +979,16 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             "u_tbco": "u_tbco" in instruments,
             "u_prepago": "u_prepago" in instruments,
         }
-
-        if input.modo_estricto():
-            if int(values["ocuph"]) == 0:
-                values["yoprinm_pr"] = 0
-                values["hr_trabajadas_pr"] = 0
-            if int(values["hr_trabajadas_pr"]) == 0 and float(values["yoprinm_pr"]) > 0:
-                values["yoprinm_pr"] = 0
+    
+        values["ocuph"] = min(int(values["ocuph"]), int(values["numh"]))
+    
+        if int(values["ocuph"]) == 0:
+            values["yoprinm_pr"] = 0
+            values["hr_trabajadas_pr"] = 0
+    
+        if int(values["hr_trabajadas_pr"]) == 0 and float(values["yoprinm_pr"]) > 0:
+            values["yoprinm_pr"] = 0
+    
         return values
 
     @reactive.calc
@@ -1008,9 +1011,19 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     @reactive.calc
     def prediction_result() -> dict[str, Any]:
+        values = calculator_values()
+    
+        if not values.get("est_civil_pr"):
+            return {
+                "ok": False,
+                "message": "Completa el perfil del hogar para calcular la probabilidad."
+            }
+    
         if not DATA["have_model"]:
             return {"ok": False, "message": DATA["model_error"] or "Modelo no disponible."}
-        x_in = prepare_input_row(calculator_values())
+    
+        x_in = prepare_input_row(values)
+    
         try:
             p = float(DATA["model"].predict_proba(x_in)[0, 1])
             label, badge_class, text = classify_probability(p)
@@ -1028,7 +1041,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     @render.text
     def prob_value():
         res = prediction_result()
-        return f"{100 * res['prob']:.2f}%" if res.get("ok") else "No disponible"
+        return f"{100 * res['prob']:.2f}%" if res.get("ok") else "--"
 
     @render.text
     def prob_caption():
@@ -1039,7 +1052,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     def prob_interpretation():
         res = prediction_result()
         if not res.get("ok"):
-            return ui.p(res.get("message", "No se pudo generar la predicción."))
+            return ui.p(res.get("message", "Completa el perfil del hogar para visualizar el resultado."))
         return ui.TagList(
             ui.tags.span(res["label"], class_=res["badge_class"]),
             ui.p(res["text"], style="margin-top: .8rem;"),
