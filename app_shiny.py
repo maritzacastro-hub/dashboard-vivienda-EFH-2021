@@ -181,6 +181,21 @@ APP_CSS = """
   font-weight: 700;
 }
 
+.prob-bar-wrap {
+  width: 100%;
+  height: 18px;
+  background: #e9ecef;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.prob-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7b2cbf 0%, #3a0ca3 100%);
+  transition: width 0.3s ease;
+}
 """
 
 
@@ -706,6 +721,7 @@ app_ui = ui.page_navbar(
                         ui.card(
                             ui.card_header("Probabilidad estimada de tenencia de vivienda propia"),
                             ui.div(ui.output_text("prob_value"), class_="prob-main-value"),
+                            ui.output_ui("prob_bar"),
                         ),
                         class_="calc-card-wrap prob-card-wrap",
                     ),
@@ -1047,7 +1063,22 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     def prob_caption():
         res = prediction_result()
         return f"p = {res['prob']:.6f}" if res.get("ok") else "No se pudo calcular la probabilidad."
-
+        
+    @render.ui
+    def prob_bar():
+        res = prediction_result()
+        if not res.get("ok"):
+            return ui.div(
+                ui.div(class_="prob-bar-fill", style="width: 0%;"),
+                class_="prob-bar-wrap",
+            )
+    
+        pct = max(0, min(100, 100 * float(res["prob"])))
+        return ui.div(
+            ui.div(class_="prob-bar-fill", style=f"width: {pct:.2f}%;"),
+            class_="prob-bar-wrap",
+        )
+    
     @render.ui
     def prob_interpretation():
         res = prediction_result()
