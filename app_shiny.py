@@ -560,10 +560,6 @@ app_ui = ui.page_navbar(
                 "entrenado guardado como joblib. Su propósito es apoyar la interpretación de los hallazgos "
                 "sin exponer microdatos crudos de la EFH."
             ),
-            ui.p(
-                "La aplicación contiene dos vistas descriptivas: una basada en 71.703 registros imputados "
-                "y otra basada en 2.313 hogares únicos. La comparación principal entre modelos se apoya en hogares únicos."
-            ),
         ),
     ),
     ui.nav_panel(
