@@ -13,6 +13,8 @@ from shinywidgets import output_widget, render_widget
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_RESULTS = BASE_DIR / "public_results"
+PUBLIC_RESULTS2 = BASE_DIR / "public_results2"
+
 MODEL_PATH = PUBLIC_RESULTS / "model_lr_18.joblib"
 
 HOGARES_UNICOS_ANALISIS = 2313
@@ -364,7 +366,8 @@ def load_app_data(base_dir: Path) -> dict[str, Any]:
     return data
 
 
-DATA = load_app_data(PUBLIC_RESULTS)
+DATA = load_app_data(PUBLIC_RESULTS)      # EDA 70.000 registros
+DATA_UNICOS = load_app_data(PUBLIC_RESULTS2)   # EDA hogares únicos
 
 
 def label_var(v: str) -> str:
@@ -388,8 +391,8 @@ def empty_figure(message: str):
     return fig
 
 
-def pseudo_series_from_hist(var_name: str) -> pd.Series:
-    h = DATA["num_hist"]
+def pseudo_series_from_hist_source(data_source: dict[str, Any], var_name: str) -> pd.Series:
+    h = data_source["num_hist"]
     if h.empty:
         return pd.Series([], dtype=float, name=var_name)
     h = h[(h["macrozona"] == "All") & (h["var"] == var_name)].copy()
@@ -406,8 +409,8 @@ def pseudo_series_from_hist(var_name: str) -> pd.Series:
     return pd.Series(vals, name=var_name)
 
 
-def categorical_table(var_name: str) -> pd.DataFrame:
-    raw = DATA["cat_counts"]
+def categorical_table_source(data_source: dict[str, Any], var_name: str) -> pd.DataFrame:
+    raw = data_source["cat_counts"]
     if raw.empty:
         return pd.DataFrame(columns=["category", "n", "porcentaje"])
     raw = raw[(raw["macrozona"] == "All") & (raw["var"] == var_name)].copy()
@@ -424,8 +427,8 @@ def categorical_table(var_name: str) -> pd.DataFrame:
     return raw
 
 
-def get_numeric_summary(var_name: str) -> dict[str, float] | None:
-    num_stats = DATA["num_stats"]
+def get_numeric_summary_source(data_source: dict[str, Any], var_name: str) -> dict[str, float] | None:
+    num_stats = data_source["num_stats"]
     if num_stats.empty:
         return None
     row = num_stats[(num_stats["macrozona"] == "All") & (num_stats["var"] == var_name)]
@@ -557,10 +560,14 @@ app_ui = ui.page_navbar(
                 "entrenado guardado como joblib. Su propósito es apoyar la interpretación de los hallazgos "
                 "sin exponer microdatos crudos de la EFH."
             ),
+            ui.p(
+                "La aplicación contiene dos vistas descriptivas: una basada en 71.703 registros imputados "
+                "y otra basada en 2.313 hogares únicos. La comparación principal entre modelos se apoya en hogares únicos."
+            ),
         ),
     ),
     ui.nav_panel(
-        "Perfil descriptivo",
+        "Perfil descriptivo MICE",
         ui.layout_sidebar(
             ui.sidebar(
                 ui.input_selectize(
@@ -608,6 +615,60 @@ app_ui = ui.page_navbar(
             ),
         ),
     ),
+    ui.nav_panel(
+        "Perfil descriptivo hogares únicos",
+        ui.layout_sidebar(
+            ui.sidebar(
+                ui.input_selectize(
+                    "var_desc_unique",
+                    "Variable a explorar",
+                    choices={v: label_var(v) for v in DATA_UNICOS["available_vars"]},
+                    selected=(
+                        DATA_UNICOS["available_vars"][0]
+                        if DATA_UNICOS["available_vars"]
+                        else ORDERED_VARS[0]
+                    ),
+                    width="100%",
+                ),
+                ui.p(
+                    "Esta pestaña resume únicamente hogares únicos. "
+                    "Es útil para evitar duplicación de registros por imputaciones.",
+                    class_="helper-text",
+                ),
+                title="Exploración",
+                width="300px",
+                open="desktop",
+            ),
+            ui.output_ui("desc_note_unique"),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Distribución principal"),
+                    output_widget("desc_plot_main_unique"),
+                    full_screen=True,
+                ),
+                ui.card(
+                    ui.card_header("Vista complementaria"),
+                    output_widget("desc_plot_aux_unique"),
+                    full_screen=True,
+                ),
+                col_widths=(6, 6),
+            ),
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Resumen numérico / frecuencias"),
+                    ui.output_data_frame("desc_table_unique"),
+                    full_screen=True,
+                ),
+                ui.card(
+                    ui.card_header("Lectura rápida"),
+                    ui.output_ui("desc_text_unique"),
+                    full_screen=True,
+                ),
+                col_widths=(7, 5),
+            ),
+        ),
+    ),
+    
     ui.nav_panel(
         "Correlaciones",
         ui.div(
@@ -869,6 +930,140 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         top_row = table.iloc[0]
         return ui.TagList(
             ui.p(f"La categoría más frecuente en {label.lower()} es {top_row['category']}.") ,
+            ui.tags.ul(
+                ui.tags.li(f"Frecuencia: {int(top_row['n']):,} hogares."),
+                ui.tags.li(f"Participación: {float(top_row['porcentaje']):.2f}% del total de la variable."),
+            ),
+        )
+
+        @reactive.calc
+    def current_var_unique() -> str:
+        selected = input.var_desc_unique()
+        return selected if selected else ORDERED_VARS[0]
+
+    @reactive.calc
+    def current_series_unique() -> pd.Series:
+        var = current_var_unique()
+        return pseudo_series_from_hist_source(DATA_UNICOS, var)
+
+    @render.ui
+    def desc_note_unique():
+        var = current_var_unique()
+        label = label_var(var)
+        meta_type = "numérica" if var in NUMERIC_VARS else "categórica/binaria"
+        return ui.div(
+            {"class": "section-note"},
+            ui.strong(f"Variable seleccionada: {label}. "),
+            f"Tipo interpretado: {meta_type}. Fuente: hogares únicos.",
+        )
+
+    @render_widget
+    def desc_plot_main_unique():
+        var = current_var_unique()
+        if var in NUMERIC_VARS and var not in {"numh", "ocuph"}:
+            serie = current_series_unique()
+            if serie.empty:
+                return empty_figure("No hay datos disponibles para esta variable.")
+            fig = px.histogram(
+                serie.to_frame(),
+                x=var,
+                nbins=30,
+                template="plotly_white",
+                title=f"Histograma de {label_var(var)} - Hogares únicos",
+            )
+            fig.update_layout(height=420, xaxis_title=label_var(var), yaxis_title="Frecuencia")
+            return fig
+
+        table = categorical_table_source(DATA_UNICOS, var)
+        if table.empty:
+            return empty_figure("No hay frecuencias disponibles para esta variable.")
+        fig = px.bar(
+            table.head(25),
+            x="category",
+            y="n",
+            text="porcentaje",
+            template="plotly_white",
+            title=f"Frecuencias de {label_var(var)} - Hogares únicos",
+        )
+        fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+        fig.update_layout(height=420, xaxis_title="Categoría", yaxis_title="Frecuencia")
+        return fig
+
+    @render_widget
+    def desc_plot_aux_unique():
+        var = current_var_unique()
+        if var in NUMERIC_VARS and var not in {"numh", "ocuph"}:
+            serie = current_series_unique()
+            if serie.empty:
+                return empty_figure("No hay datos disponibles para esta variable.")
+            fig = px.box(
+                serie.to_frame(),
+                y=var,
+                template="plotly_white",
+                title=f"Boxplot de {label_var(var)} - Hogares únicos",
+            )
+            fig.update_layout(height=420, yaxis_title=label_var(var))
+            return fig
+
+        table = categorical_table_source(DATA_UNICOS, var)
+        if table.empty:
+            return empty_figure("No hay categorías disponibles para esta variable.")
+        fig = px.pie(
+            table.head(10),
+            names="category",
+            values="n",
+            hole=0.55,
+            template="plotly_white",
+            title=f"Composición porcentual de {label_var(var)} - Hogares únicos",
+        )
+        fig.update_layout(height=420)
+        return fig
+
+    @render.data_frame
+    def desc_table_unique():
+        var = current_var_unique()
+        if var in NUMERIC_VARS and var not in {"numh", "ocuph"}:
+            serie = current_series_unique()
+            if serie.empty:
+                return render.DataGrid(pd.DataFrame({"mensaje": ["Sin datos disponibles"]}), width="100%")
+            desc = serie.describe(percentiles=[0.25, 0.5, 0.75]).round(3).reset_index()
+            desc.columns = ["estadístico", "valor"]
+            return render.DataGrid(desc, width="100%")
+
+        table = categorical_table_source(DATA_UNICOS, var)
+        if table.empty:
+            return render.DataGrid(pd.DataFrame({"mensaje": ["Sin datos disponibles"]}), width="100%")
+        table = table.rename(columns={"category": "categoría", "n": "frecuencia", "porcentaje": "porcentaje"})
+        return render.DataGrid(table, width="100%")
+
+    @render.ui
+    def desc_text_unique():
+        var = current_var_unique()
+        label = label_var(var)
+
+        if var in NUMERIC_VARS and var not in {"numh", "ocuph"}:
+            srow = get_numeric_summary_source(DATA_UNICOS, var)
+            if srow is None:
+                return ui.p("No hay resumen público disponible para esta variable.")
+            porc_cero = float(srow.get("porc_cero", 0.0))
+            porc_pos = float(srow.get("porc_pos", 0.0))
+            n_total = int(float(srow.get("n", 0)))
+            return ui.TagList(
+                ui.p(f"La variable {label.lower()} se resume sobre {n_total:,} hogares únicos."),
+                ui.tags.ul(
+                    ui.tags.li(f"{porc_cero:.2f}% de los hogares no presentan monto en esta variable."),
+                    ui.tags.li(f"{porc_pos:.2f}% sí presentan monto positivo en esta variable."),
+                    ui.tags.li("La forma del gráfico proviene de histogramas agregados del subconjunto de hogares únicos."),
+                ),
+            )
+
+        table = categorical_table_source(DATA_UNICOS, var)
+        if table.empty:
+            return ui.p("No hay frecuencias públicas disponibles para esta variable.")
+
+        top_row = table.iloc[0]
+        return ui.TagList(
+            ui.p(f"La categoría más frecuente en {label.lower()} es {top_row['category']}."),
             ui.tags.ul(
                 ui.tags.li(f"Frecuencia: {int(top_row['n']):,} hogares."),
                 ui.tags.li(f"Participación: {float(top_row['porcentaje']):.2f}% del total de la variable."),
