@@ -469,6 +469,42 @@ def prepare_input_row(values: dict[str, Any]) -> pd.DataFrame:
     df = pd.DataFrame([row])
     return df[ORDERED_VARS]
 
+def prob_to_logit(p: float) -> float:
+    p = float(np.clip(p, 1e-6, 1 - 1e-6))
+    return float(np.log(p / (1 - p)))
+
+
+def evaluar_perfil_modelo(model, perfil: dict) -> tuple[float, float]:
+    x_in = prepare_input_row(perfil)
+    p = float(model.predict_proba(x_in)[0, 1])
+    eta = prob_to_logit(p)
+    return p, eta
+
+
+def clonar_y_modificar(base: dict, **cambios) -> dict:
+    perfil = dict(base)
+    perfil.update(cambios)
+    return perfil
+
+
+def comparar_escenarios_modelo(model, perfil_base: dict, escenarios: dict, grupo: str) -> pd.DataFrame:
+    p_base, eta_base = evaluar_perfil_modelo(model, perfil_base)
+
+    filas = []
+    for nombre, perfil in escenarios.items():
+        p, eta = evaluar_perfil_modelo(model, perfil)
+        filas.append({
+            "grupo": grupo,
+            "escenario": nombre,
+            "probabilidad": p,
+            "probabilidad_%": round(p * 100, 2),
+            "delta_prob": p - p_base,
+            "delta_pp": round((p - p_base) * 100, 2),
+            "logit": eta,
+            "OR_vs_base": round(float(np.exp(eta - eta_base)), 4),
+        })
+
+    return pd.DataFrame(filas)
 
 def metric_summary_table(df_metrics: pd.DataFrame) -> pd.DataFrame:
     cols = [c for c in ["AUC", "Sensibilidad", "Especificidad", "Precision"] if c in df_metrics.columns]
@@ -734,8 +770,8 @@ app_ui = ui.page_navbar(
                 ),
                 
                 ui.input_slider("edad_pr", label_var("edad_pr"), min=16, max=90, value=16),
-                ui.input_slider("numh", label_var("numh"), min=1, max=12, value=1),
-                ui.input_slider("ocuph", label_var("ocuph"), min=0, max=3, value=0),
+                ui.input_slider("numh", label_var("numh"), min=1, max=11, value=1),
+                ui.input_slider("ocuph", label_var("ocuph"), min=0, max=7, value=0),
                 ui.input_numeric("yoprinm_pr", label_var("yoprinm_pr"), value=0, min=0, step=50000),
                 ui.input_numeric("ypenh", label_var("ypenh"), value=0, min=0, step=50000),
                 ui.input_numeric("ysubh", label_var("ysubh"), value=0, min=0, step=50000),
@@ -783,8 +819,40 @@ app_ui = ui.page_navbar(
                     ),
                 ),
             ),
+            ui.div(
+                {"class": "section-note"},
+                ui.strong("Comparación de escenarios del perfil base. "),
+                "Se usa como perfil base exactamente lo que la persona ingresa en la calculadora y se compara cómo cambia la probabilidad al modificar edad, ingreso principal y bancarización.",
+            ),
+
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Escenario 1: cambios en edad"),
+                    output_widget("calc_plot_edad"),
+                    full_screen=True,
+                ),
+                ui.card(
+                    ui.card_header("Escenario 2: cambios en ingreso principal"),
+                    output_widget("calc_plot_ingreso"),
+                    full_screen=True,
+                ),
+                col_widths=(6, 6),
+            ),
+
+            ui.card(
+                ui.card_header("Escenario 3: bancarización"),
+                output_widget("calc_plot_banca"),
+                full_screen=True,
+            ),
+
+            ui.card(
+                ui.card_header("Tabla resumen de escenarios"),
+                ui.output_data_frame("calc_scenarios_table"),
+                full_screen=True,
+            ),
         ),
     ),
+            
 
     title="Dashboard EFH 2021",
     id="main_nav",
@@ -796,18 +864,6 @@ app_ui = ui.page_navbar(
 
 
 def server(input: Inputs, output: Outputs, session: Session) -> None:
-    @reactive.effect
-    def _sync_ocuph_with_numh() -> None:
-        max_ocuph = int(input.numh())
-        current_ocuph = int(input.ocuph())
-        ui.update_slider(
-            "ocuph",
-            min=0,
-            max=max_ocuph,
-            value=min(current_ocuph, max_ocuph),
-            session=session,
-        )
-
     @reactive.calc
     def current_var() -> str:
         selected = input.var_desc()
@@ -1265,6 +1321,197 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             "La cifra mostrada corresponde a la probabilidad estimada por el modelo para el perfil de hogar ingresado."
         )
 
+    @reactive.calc
+    def scenario_results() -> dict[str, Any] | None:
+        values = calculator_values()
+
+        if not values.get("est_civil_pr"):
+            return None
+
+        if not DATA["have_model"] or DATA["model"] is None:
+            return {"error": DATA["model_error"] or "Modelo no disponible."}
+
+        try:
+            model = DATA["model"]
+            p_base, eta_base = evaluar_perfil_modelo(model, values)
+
+            # =========================
+            # Escenario 1: Edad
+            # =========================
+            edad_base = int(values["edad_pr"])
+            edades = sorted(set(min(90, edad_base + k) for k in [0, 10, 20, 30, 40]))
+
+            escenarios_edad = {
+                f"Edad = {e}": clonar_y_modificar(values, edad_pr=e)
+                for e in edades
+            }
+
+            df_edad = comparar_escenarios_modelo(model, values, escenarios_edad, "Edad")
+            df_edad["edad"] = pd.to_numeric(
+                df_edad["escenario"].str.extract(r"(\d+)", expand=False),
+                errors="coerce"
+            )
+
+            # =========================
+            # Escenario 2: Ingreso
+            # =========================
+            ingreso_base = int(values["yoprinm_pr"])
+            aumentos = [0, 100000, 200000, 500000, 800000]
+
+            escenarios_ingreso = {
+                f"Ingreso = {(ingreso_base + aum):,}".replace(",", "."):
+                    clonar_y_modificar(values, yoprinm_pr=ingreso_base + aum)
+                for aum in aumentos
+            }
+
+            df_ingreso = comparar_escenarios_modelo(model, values, escenarios_ingreso, "Ingreso principal")
+            df_ingreso["ingreso"] = [ingreso_base + aum for aum in aumentos]
+
+            # =========================
+            # Escenario 3: Bancarización
+            # =========================
+            escenarios_banca = {
+                "Perfil base": dict(values),
+
+                "Sin bancarización": clonar_y_modificar(
+                    values,
+                    u_pac=0, t_tbco=0, u_pat=0, u_tbco=0, u_cheq=0, t_cc=0, u_prepago=0
+                ),
+
+                "Bancarización parcial": clonar_y_modificar(
+                    values,
+                    u_pac=1, t_tbco=0, u_pat=0, u_tbco=1, u_cheq=0, t_cc=0, u_prepago=1
+                ),
+
+                "Bancarización alta": clonar_y_modificar(
+                    values,
+                    u_pac=1, t_tbco=1, u_pat=1, u_tbco=1, u_cheq=1, t_cc=1, u_prepago=1
+                ),
+            }
+
+            df_banca = comparar_escenarios_modelo(model, values, escenarios_banca, "Bancarización")
+
+            # =========================
+            # Resumen general
+            # =========================
+            df_resumen = pd.concat([df_edad, df_ingreso, df_banca], ignore_index=True)
+
+            return {
+                "base_prob": p_base,
+                "base_logit": eta_base,
+                "df_edad": df_edad,
+                "df_ingreso": df_ingreso,
+                "df_banca": df_banca,
+                "df_resumen": df_resumen,
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    @render_widget
+    def calc_plot_edad():
+        res = scenario_results()
+        if res is None:
+            return empty_figure("Completa el estado civil para activar la comparación de escenarios.")
+        if "error" in res:
+            return empty_figure(res["error"])
+
+        df = res["df_edad"].copy()
+        fig = px.line(
+            df,
+            x="edad",
+            y="probabilidad_%",
+            markers=True,
+            template="plotly_white",
+            title="Probabilidad según edad",
+        )
+        fig.add_hline(
+            y=res["base_prob"] * 100,
+            line_dash="dash",
+            annotation_text="Perfil base",
+        )
+        fig.update_layout(
+            height=380,
+            xaxis_title="Edad",
+            yaxis_title="Probabilidad de tenencia (%)",
+        )
+        return fig
+
+    @render_widget
+    def calc_plot_ingreso():
+        res = scenario_results()
+        if res is None:
+            return empty_figure("Completa el estado civil para activar la comparación de escenarios.")
+        if "error" in res:
+            return empty_figure(res["error"])
+
+        df = res["df_ingreso"].copy()
+        fig = px.line(
+            df,
+            x="escenario",
+            y="probabilidad_%",
+            markers=True,
+            template="plotly_white",
+            title="Probabilidad según ingreso principal",
+        )
+        fig.add_hline(
+            y=res["base_prob"] * 100,
+            line_dash="dash",
+            annotation_text="Perfil base",
+        )
+        fig.update_layout(
+            height=380,
+            xaxis_title="Ingreso principal mensual",
+            yaxis_title="Probabilidad de tenencia (%)",
+        )
+        fig.update_xaxes(tickangle=25)
+        return fig
+
+    @render_widget
+    def calc_plot_banca():
+        res = scenario_results()
+        if res is None:
+            return empty_figure("Completa el estado civil para activar la comparación de escenarios.")
+        if "error" in res:
+            return empty_figure(res["error"])
+
+        df = res["df_banca"].copy()
+        fig = px.bar(
+            df,
+            x="escenario",
+            y="probabilidad_%",
+            template="plotly_white",
+            title="Probabilidad según bancarización",
+        )
+        fig.add_hline(
+            y=res["base_prob"] * 100,
+            line_dash="dash",
+            annotation_text="Perfil base",
+        )
+        fig.update_layout(
+            height=380,
+            xaxis_title="Escenario",
+            yaxis_title="Probabilidad de tenencia (%)",
+        )
+        fig.update_xaxes(tickangle=20)
+        return fig
+
+    @render.data_frame
+    def calc_scenarios_table():
+        res = scenario_results()
+        if res is None:
+            return render.DataGrid(
+                pd.DataFrame({"mensaje": ["Completa el estado civil para activar la tabla de escenarios."]}),
+                width="100%",
+            )
+        if "error" in res:
+            return render.DataGrid(pd.DataFrame({"mensaje": [res["error"]]}), width="100%")
+
+        df = res["df_resumen"].copy()
+        df = df[["grupo", "escenario", "probabilidad_%", "delta_pp", "OR_vs_base"]]
+        df.columns = ["Grupo", "Escenario", "Probabilidad (%)", "Cambio (pp)", "OR vs base"]
+        return render.DataGrid(df.round(4), width="100%")
+    
     @render.ui
     def calc_warnings():
         warnings = calc_warnings_list()
