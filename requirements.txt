@@ -6,3 +6,5 @@ numpy
 joblib
 scikit-learn
 libsass
+websockets==15.0.1
+
