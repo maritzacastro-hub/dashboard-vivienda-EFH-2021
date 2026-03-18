@@ -436,6 +436,14 @@ def get_numeric_summary_source(data_source: dict[str, Any], var_name: str) -> di
         return None
     return row.iloc[0].to_dict()
 
+def pseudo_series_from_hist(var_name: str) -> pd.Series:
+    return pseudo_series_from_hist_source(DATA, var_name)
+
+def categorical_table(var_name: str) -> pd.DataFrame:
+    return categorical_table_source(DATA, var_name)
+
+def get_numeric_summary(var_name: str) -> dict[str, float] | None:
+    return get_numeric_summary_source(DATA, var_name)
 
 def prepare_input_row(values: dict[str, Any]) -> pd.DataFrame:
     row = {
@@ -932,7 +940,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             ),
         )
 
-        @reactive.calc
+    @reactive.calc
     def current_var_unique() -> str:
         selected = input.var_desc_unique()
         return selected if selected else ORDERED_VARS[0]
