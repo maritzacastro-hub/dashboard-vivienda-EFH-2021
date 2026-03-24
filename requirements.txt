@@ -6,5 +6,6 @@ numpy
 joblib
 scikit-learn
 libsass
+patsy
 websockets==15.0.1
 
